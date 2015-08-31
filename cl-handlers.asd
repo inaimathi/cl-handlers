@@ -4,6 +4,7 @@
   :description "Describe cl-handlers here"
   :author "inaimathi <leo.zovic@gmail.com>"
   :license "Expat <http://directory.fsf.org/wiki/License:Expat>"
+  :version "0.0.1"
   :serial t
   :depends-on (#:alexandria #:split-sequence)
   :components ((:module

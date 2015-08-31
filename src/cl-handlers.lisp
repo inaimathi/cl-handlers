@@ -17,7 +17,7 @@
 	     (format stream "Unknown type ~a" (expected-type condition)))))
 
 (defmethod from-string (expected-type thing)
-  (error (make-instance 'from-string--unknown-type :expected-type expected-type)))
+  (error (make-instance 'from-string-unknown-type :expected-type expected-type)))
 (defmethod from-string ((expected-type (eql :string)) thing) thing)
 (defmethod from-string ((expected-type (eql :integer)) thing) (parse-integer thing))
 (defmethod from-string ((expected-type (eql :keyword)) thing) (intern thing :keyword))
