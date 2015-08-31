@@ -36,6 +36,24 @@ The first one will probably be for [`fukamachi/woo`](), but don't hold me to tha
 
 ## Export Notes
 
+### Handler-related function
+
+#### `:define-handler`
+
+Inserts a handler into the `handler-table` in context.
+
+#### `:with-handler-table`
+
+Executes forms in the context of the given `handler-table`. By default all `define-handler` and `find-handler` calls use a global `handler-table` defined internally to `:cl-handlers`.
+
+#### `:empty`
+
+Returns the empty handler table.
+
+#### `:find-handler`
+
+Tries to find a handler in the `handler-table` in context.
+
 ### Parsing functions
 
 *(This part should probably be in a dedicated project. It deals with getting tihngs out of string representations.)*
@@ -57,21 +75,3 @@ The base error class thrown by `from-string` and `string->`. Extend this if you 
 #### `:from-string-unknown-type`
 
 The error type thrown for undefined types. Don't extend this; it'll cause odd behaviors with `define-handler`s' static checking.
-
-
-
-### `:with-handler-table`
-
-Executes forms in the context of the given `handler-table`. By default all `define-handler` and `find-handler` calls use a global `handler-table` defined internally to `:cl-handlers`.
-
-### `:empty`
-
-Returns the empty handler table.
-
-### `:define-handler`
-
-Inserts a handler into the `handler-table` in context.
-
-### `:find-handler`
-
-Tries to find a handler in the `handler-table` in context.
