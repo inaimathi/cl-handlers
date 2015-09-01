@@ -12,27 +12,38 @@
 
  (ok
   (with-handler-table (empty)
-    (define-handler (a/<foo>/b) ((foo :integer))
+    (define-handler (a/-foo=integer/b) ()
       (* 2 foo))
     (found-fn? "/a/2/b"))
   "Correctly route variable URIs")
 
  (ok
   (with-handler-table (empty)
-    (define-handler (a/<foo>/b/<bar>) ((foo :integer) (bar :integer))
+    (define-handler (a/-foo=integer/b/-bar=integer) ()
       (+ foo bar))
     (found-fn? "/a/2/b/4"))
   "Correctly route variable URIs with multiple variables")
 
- (is-error
+ (ok
   (with-handler-table (empty)
-    (define-handler (a/b) ((foo :integer) (foo :integer))
-      (* 2 foo)))
-  error
-  "No duplicate parameters are allowed")
+    (define-handler (a/-foo) ((foo :integer)) foo)
+    (found-fn? "/a/2"))
+  "You can type path parameters with arg-style declarations")
+
+ (ok
+  (with-handler-table (empty)
+    (define-handler (a/-foo=integer) ((foo :integer)) foo))
+  "You can type path parameters with both inline and arg-style declarations")
 
  (is-error
   (with-handler-table (empty)
-    (define-handler (a/<foo>) () "Testing"))
+    (define-handler (a) ((foo :integer) (foo :integer)) foo))
   error
-  "You have to declare path variables"))
+  "No duplicate declarations are allowed")
+
+ (is-error
+  (with-handler-table (empty)
+    (define-handler (a/-foo=integer/b/-foo=integer) ((foo :integer))
+      foo))
+  error
+  "NO duplicate declarations are allowed"))

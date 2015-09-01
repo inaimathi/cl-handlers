@@ -4,6 +4,10 @@
 
 (defparameter *handler-table* nil)
 
+;;;;;;;;;; Basic utility
+(defun split-at (elem seq)
+  (split-sequence:split-sequence elem seq :remove-empty-subseqs t))
+
 ;;;;;;;;;; Basic parser stuff
 (define-condition from-string-error (error)
   ((thing :initarg :thing :initform nil :reader thing)
@@ -50,19 +54,18 @@
 (defun any-vars? (trie)
   (> (hash-table-count (trie-vars trie)) 0))
 
-(defun path-var? (str)
-  (and (eql #\< (char str 0))
-       (eql #\> (char str (- (length str) 1)))))
+(defun path-var? (str) (eql #\- (char str 0)))
 
-(defun var-sym (str)
-  (intern (subseq (string-upcase str) 1 (- (length str) 1)) :keyword))
+(defun var-key (str)
+  (let ((pair (split-at #\= (string-upcase (subseq str 1)))))
+    (intern (car pair) :keyword)))
 
 (defun trie-insert! (key value trie)
   (labels ((rec (key-parts trie)
              (cond ((null key-parts)
                     (setf (trie-value trie) value))
                    ((path-var? (first key-parts))
-                    (next! (var-sym (first key-parts)) (rest key-parts) (trie-vars trie)))
+                    (next! (var-key (first key-parts)) (rest key-parts) (trie-vars trie)))
                    (t
                     (next! (first key-parts) (rest key-parts) (trie-map trie)))))
            (next! (k rest map)
@@ -95,7 +98,7 @@
 (defparameter *handler-table* (make-trie))
 
 (defun process-uri (uri)
-  (split-sequence:split-sequence #\/ (symbol-name uri) :remove-empty-subseqs t))
+  (split-at #\/ (symbol-name uri)))
 
 (defun insert-handler! (uri handler-fn)
   (trie-insert! uri handler-fn *handler-table*)
@@ -103,7 +106,7 @@
 
 (defun find-handler (uri-string)
   (trie-lookup
-   (split-sequence:split-sequence #\/ uri-string :remove-empty-subseqs t)
+   (split-at #\/ uri-string)
    *handler-table*))
 
 (defun empty () (make-trie))
@@ -112,13 +115,50 @@
   `(let ((*handler-table* ,tbl))
      ,@body))
 
+(define-condition untyped-parameter (error)
+  ((param-name :initarg :param-name :initform nil :reader param-name))
+  (:report (lambda (condition stream)
+	     (format stream "Parameter ~s has no declared type" (param-name condition)))))
+
+(define-condition parameter-type-mismatch (error)
+  ((param-name :initarg :param-name :initform nil :reader param-name)
+   (type-a :initarg :type-a :initform nil :reader type-a)
+   (type-b :initarg :type-b :initform nil :reader type-b))
+  (:report (lambda (condition stream)
+	     (format stream "Declaring ~s to be of type ~a, but already declared to be of type ~a"
+		     (param-name condition) (type-a condition) (type-b condition)))))
+
+(defun no-dupes? (lst) 
+  (equal lst (remove-duplicates lst)))
+
+(defun parse-var (str)
+  (let ((pair (split-at #\= (string-upcase (subseq str 1)))))
+    (list (intern (car pair))
+	  (when (second pair) (intern (second pair) :keyword)))))
+
 (defmacro define-handler ((uri) (&rest params) &body body)
   (let* ((processed (process-uri uri))
-         (path-vars (loop for elem in processed
-                       if (path-var? elem) collect (var-sym elem)))
-         (param-names (mapcar (lambda (p) (intern (symbol-name (car p)) :keyword)) params)))
-    (assert (null (set-difference path-vars param-names))
-            nil "You haven't declared some of your path variables")
-    (assert (equal param-names (remove-duplicates param-names))
-            nil "You have some duplicate param-names")
-    `(insert-handler! ',processed (make-handler ,params ,@body))))
+	 (path-vars (loop for v in processed when (path-var? v) collect (parse-var v))))
+    ;; TODO - check for valid type annotations (try to parse an empty string, and check for a from-string-unknown-type error
+    ;; TODO - make the errors report the specific dupes (maybe craft a special error class too).
+    (assert (no-dupes? (mapcar #'car path-vars))
+	    nil "You have a duplicate path variable: ~s" (mapcar #'car path-vars))
+    (assert (no-dupes? (mapcar #'car params))
+	    nil "You have duplicate parameters: ~s" (mapcar #'car params))
+    (let ((tbl (make-hash-table)))
+      (loop for (name type) in (append path-vars params)
+	 do (let ((tp (gethash name tbl)))
+	      (cond ((null tp) (setf (gethash name tbl) type))
+		    ((not (eq type tp))
+		     (error 
+		      (make-instance 
+		       'parameter-type-mismatch
+		       :param-name name :type-a type :type-b tp))))))
+      `(insert-handler! 
+	',processed 
+	(make-handler 
+	    ,(loop for k being the hash-keys of tbl
+		for v being the hash-values of tbl
+		when (null v) do (error (make-instance 'untyped-parameter :param-name k))
+		collect (list k v))
+	  ,@body)))))

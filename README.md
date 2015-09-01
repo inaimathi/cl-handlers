@@ -5,32 +5,27 @@
 **This library is still in development.** Don't use it yet.
 
 ## TODO/Notes
-
-- Decide on the variable param syntax
-	- Currently `<foo>`, but seems weird to bracket the variable name
-	- It can't be `:blah` for Lisp-`reader`-related reasons (also,
-	  I'd want to be able to specify type inline)
-	- Probably shouldn't be `?foo` because it might be confusing for
-	  new readers (`?` is the param separator in a URI)
-	- Maybe `>foo`? `>foo>>integer`
-- Decide what `define-handler` should check statically
-	- Currently checks that you've declared all your path variables, and
-	  makes sure there are no duplicates.
-	- Should probably check that all your types are valid (that you
-	  don't do something like `(foo :mumble)` without having the appropriate
-	  parsers defined for `:mumble`)
+### Open Questions
 - Figure out what serving these looks like.
 	- Probably need to write server-specific functions here. Or a method that
 	  dispatches on servers somehow
 
-## Usage
+### Decisions
+- Variable param syntax is `-foo=bar`. The type is optional if you intend to declare it in an arg-style annotation
+- No duplicate declarations (lots of little holes to fall down in that direction)
+- Path variables may be declared inline or as arg-style declarations with the same name
+- `define-handler` statically checks:
+  - That all parameters are annotated
+  - That there are no duplicate parameters
+  - That all annotations correspond to valid types.
 
+## Usage
 You can run the test-suite from a Lisp REPL with
 
     (ql:quickload (list :cl-handlers :cl-handlers-test))
 	(prove:run :cl-handlers-test)
 
-Otherwise, this project does nothing until I write at least one server adapter.
+This project does nothing else until I write at least one server adapter.
 
 The first one will probably be for [`fukamachi/woo`](), but don't hold me to that.
 
