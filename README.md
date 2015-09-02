@@ -5,10 +5,19 @@
 **This library is still in development.** Don't use it yet.
 
 ## TODO/Notes
+- Trap from-string errors and report the 400 thing
+- Trap other errors and report the 500 thing
+
 ### Open Questions
+- Do we need a separate definition primitive for error handlers?
+  - Well... yes, obviously. What do they look like?
+- How do we deal with POST parameters?
+  - Deal with URL-encoded parameters in a standardized way.
+  - Give users hooks to deal with the rest (a callback to read the body from stream)
+- Do we expose `header` properties to handlers? If so, how?
 - Figure out what serving these looks like.
-	- Probably need to write server-specific functions here. Or a method that
-	  dispatches on servers somehow
+  - Probably need to write server-specific functions here. Or a method that
+	dispatches on servers somehow
 
 ### Decisions
 - Variable param syntax is `-foo=bar`. The type is optional if you intend to declare it in an arg-style annotation
