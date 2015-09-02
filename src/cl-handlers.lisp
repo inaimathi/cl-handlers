@@ -91,7 +91,7 @@
                                     (return-from trie-lookup (values val bindings))))))
                          (t
                           nil)))
-                 (values (trie-value trie) bindings ))))
+                 (values (trie-value trie) bindings))))
     (rec key trie nil)))
 
 ;;;;; And using it
@@ -162,3 +162,29 @@
 		when (null v) do (error (make-instance 'untyped-parameter :param-name k))
 		collect (list k v))
 	  ,@body)))))
+
+;;;;;;;;;; Serving handlers
+(defun process-params (params)
+  (loop for pair in (split-at #\& params)
+     collect (let ((split (split-at #\= pair)))
+	       (cons (intern (string-upcase (first split)) :keyword)
+		     (second split)))))
+
+(defmethod serve ((server (eql :woo)))
+  (woo:run
+   (lambda (env)
+     (multiple-value-bind (handler bindings) (find-handler (getf env :path-info))
+       (if handler
+	   (let ((params (append bindings (process-params (getf env :query-string))))
+		 (method (getf env :request-method))
+		 (headers (getf env :headers)))
+	     (format t "~{~s~^  ~}~%" (list handler params method headers))
+	     (list 200 '(:content-type "text/plain")
+		   (list (funcall handler (lambda (k) (cdr (assoc k params)))))))
+	   '(404 (:content-type "text/plain") ("Nope, not found...")))))))
+
+;; (with-handler-table (empty)
+;;   (define-handler (test) () "Hello world!")
+;;   (define-handler (add) ((a :integer) (b :integer))
+;;     (write-to-string (+ a b)))
+;;   (serve :woo))

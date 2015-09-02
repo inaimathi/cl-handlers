@@ -6,7 +6,11 @@
   :license "Expat <http://directory.fsf.org/wiki/License:Expat>"
   :version "0.0.1"
   :serial t
-  :depends-on (#:alexandria #:split-sequence)
+  :depends-on (#:alexandria
+	       #:split-sequence
+	       ;; TMP
+	       #:woo ;#:hunchentoot #:wookie
+	       )
   :components ((:module
                 src :components
                 ((:file "package")

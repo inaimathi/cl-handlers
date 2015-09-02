@@ -38,12 +38,12 @@
  (is-error
   (with-handler-table (empty)
     (define-handler (a) ((foo :integer) (foo :integer)) foo))
-  error
+  'error
   "No duplicate declarations are allowed")
 
  (is-error
   (with-handler-table (empty)
     (define-handler (a/-foo=integer/b/-foo=integer) ((foo :integer))
       foo))
-  error
+  'error
   "NO duplicate declarations are allowed"))
