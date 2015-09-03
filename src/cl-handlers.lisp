@@ -1,5 +1,4 @@
 ;;;; cl-handlers.lisp
-
 (in-package #:cl-handlers)
 
 (defparameter *handler-table* nil)

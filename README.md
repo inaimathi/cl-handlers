@@ -11,9 +11,11 @@
 ### Open Questions
 - Do we need a separate definition primitive for error handlers?
   - Well... yes, obviously. What do they look like?
+  - Very minimal. Possibly just a string to send back to the client (might be elaborate, and generated with `cl-who`, but just a string). Could go the other way too; make them just like regular handlers, but arrange for there to be a low-level series of 500-errors that definitiely don't cause their own errors (just in case the user-defined ones do)
 - How do we deal with POST parameters?
   - Deal with URL-encoded parameters in a standardized way.
   - Give users hooks to deal with the rest (a callback to read the body from stream)
+- How do we deal with session? Same as in `house`?
 - Do we expose `header` properties to handlers? If so, how?
 - Figure out what serving these looks like.
   - Probably need to write server-specific functions here. Or a method that
