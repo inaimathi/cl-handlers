@@ -94,21 +94,36 @@
     (rec key trie nil)))
 
 ;;;;; And using it
-(defparameter *handler-table* (make-trie))
+(defclass handler-table ()
+  ((handlers :initform (make-trie) :initarg :handlers :reader handlers)
+   (error-handlers :initform (make-errors-table) :initarg :error-handlers :reader error-handlers)))
+
+(defun make-errors-table ()
+  (let ((tbl (make-hash-table)))
+    (mapc
+     (lambda (pair) (setf (gethash (first pair) tbl) (second pair)))
+     '((404 "Nope! This page doesn't exist here.")
+       (500 "Something went wrong internally. Please make a note of it.")))
+    tbl))
+
+(defun empty () (make-instance 'handler-table))
+
+(defparameter *handler-table* (empty))
 
 (defun process-uri (uri)
   (split-at #\/ (symbol-name uri)))
 
 (defun insert-handler! (uri handler-fn)
-  (trie-insert! uri handler-fn *handler-table*)
+  (trie-insert! uri handler-fn (handlers *handler-table*))
   *handler-table*)
 
 (defun find-handler (uri-string)
   (trie-lookup
    (split-at #\/ uri-string)
-   *handler-table*))
+   (handlers *handler-table*)))
 
-(defun empty () (make-trie))
+(defun find-error (http-code)
+  (gethash http-code (error-handlers *handler-table*)))
 
 (defmacro with-handler-table (tbl &body body)
   `(let ((*handler-table* ,tbl))
@@ -162,6 +177,12 @@
 		collect (list k v))
 	  ,@body)))))
 
+(defun define-error-handler (http-code body)
+  (assert (and (numberp http-code) (>= 599 400 )) nil 
+	  "The http-code must be a number specifying a code 400/500 error")
+  (setf (gethash http-code (error-handlers *handler-table*))
+	body))
+
 ;;;;;;;;;; Serving handlers
 (defun process-params (params)
   (loop for pair in (split-at #\& params)
@@ -180,10 +201,11 @@
 	     (format t "~{~s~^  ~}~%" (list handler params method headers))
 	     (list 200 '(:content-type "text/plain")
 		   (list (funcall handler (lambda (k) (cdr (assoc k params)))))))
-	   '(404 (:content-type "text/plain") ("Nope, not found...")))))))
+	   `(404 (:content-type "text/plain") 
+		 (,(find-error 404))))))))
 
-;; (with-handler-table (empty)
-;;   (define-handler (test) () "Hello world!")
-;;   (define-handler (add) ((a :integer) (b :integer))
-;;     (write-to-string (+ a b)))
-;;   (serve :woo))
+(with-handler-table (empty)
+  (define-handler (test) () "Hello world!")
+  (define-handler (add) ((a :integer) (b :integer))
+    (write-to-string (+ a b)))
+  (serve :woo))
