@@ -1,8 +1,6 @@
 ;;;; cl-handlers.lisp
 (in-package #:cl-handlers)
 
-(defparameter *handler-table* nil)
-
 ;;;;;;;;;; Basic utility
 (defun split-at (elem seq)
   (split-sequence:split-sequence elem seq :remove-empty-subseqs t))
@@ -38,96 +36,16 @@
        ,@(if params
              `((let ,(loop for (name type) in params
                         collect `(,name (string-> ,type (funcall ,param-table ,(intern (symbol-name name) :keyword)))))
-                 ,@body))
+                 (make-instance 'response :body (progn ,@body))))
              `((declare (ignore ,param-table))
-               ,@body)))))
+               (make-instance 'response :body (progn ,@body)))))))
 
-;;;;;;;;;; The handler table structure
-;;;;; A minimal, custom Trie
-;;;;;;;; (It needs to allow for variables at each level, including prospective matching of the rest of a URI segment)
-(defstruct trie
-  (value nil)
-  (map (make-hash-table :test 'equal))
-  (vars (make-hash-table)))
-
-(defun any-vars? (trie)
-  (> (hash-table-count (trie-vars trie)) 0))
-
-(defun path-var? (str) (eql #\- (char str 0)))
-
-(defun var-key (str)
-  (let ((pair (split-at #\= (string-upcase (subseq str 1)))))
-    (intern (car pair) :keyword)))
-
-(defun trie-insert! (key value trie)
-  (labels ((rec (key-parts trie)
-             (cond ((null key-parts)
-                    (setf (trie-value trie) value))
-                   ((path-var? (first key-parts))
-                    (next! (var-key (first key-parts)) (rest key-parts) (trie-vars trie)))
-                   (t
-                    (next! (first key-parts) (rest key-parts) (trie-map trie)))))
-           (next! (k rest map)
-             (let ((next (gethash k map)))
-               (if next
-                   (rec rest next)
-                   (rec rest (setf (gethash k map) (make-trie)))))))
-    (rec key trie)
-    trie))
-
-(defun trie-lookup (key trie)
-  (labels ((rec (key-parts trie bindings)
-             (if key-parts
-                 (let ((next (gethash (string-upcase (first key-parts)) (trie-map trie))))
-                   (cond (next
-                          (rec (rest key-parts) next bindings))
-                         ((any-vars? trie)
-                          (loop for k being the hash-keys of (trie-vars trie)
-                             for v being the hash-values of (trie-vars trie)
-                             do (multiple-value-bind (val bindings)
-                                    (rec (rest key-parts) v (cons (cons k (first key-parts)) bindings))
-                                  (when val
-                                    (return-from trie-lookup (values val bindings))))))
-                         (t
-                          nil)))
-                 (values (trie-value trie) bindings))))
-    (rec key trie nil)))
-
-;;;;; And using it
-(defclass handler-table ()
-  ((handlers :initform (make-trie) :initarg :handlers :reader handlers)
-   (error-handlers :initform (make-errors-table) :initarg :error-handlers :reader error-handlers)))
-
-(defun make-errors-table ()
-  (let ((tbl (make-hash-table)))
-    (mapc
-     (lambda (pair) (setf (gethash (first pair) tbl) (second pair)))
-     '((404 "Nope! This page doesn't exist here.")
-       (500 "Something went wrong internally. Please make a note of it.")))
-    tbl))
-
-(defun empty () (make-instance 'handler-table))
-
-(defparameter *handler-table* (empty))
-
-(defun process-uri (uri)
-  (split-at #\/ (symbol-name uri)))
-
-(defun insert-handler! (uri handler-fn)
-  (trie-insert! uri handler-fn (handlers *handler-table*))
-  *handler-table*)
-
-(defun find-handler (uri-string)
-  (trie-lookup
-   (split-at #\/ uri-string)
-   (handlers *handler-table*)))
-
-(defun find-error (http-code)
-  (gethash http-code (error-handlers *handler-table*)))
-
-(defmacro with-handler-table (tbl &body body)
-  `(let ((*handler-table* ,tbl))
-     ,@body))
+;;;;;;;;;; Handler definition
+(defclass response ()
+  ((response-code :accessor response-code :initform 200 :initarg :response-code)
+   (content-type :accessor content-type :initform "text/plain" :initarg :content-type)
+   (headers :accessor headers :initform nil :initarg :headers)
+   (body :accessor body :initform "" :initarg :body)))
 
 (define-condition untyped-parameter (error)
   ((param-name :initarg :param-name :initform nil :reader param-name))
@@ -150,9 +68,11 @@
     (list (intern (car pair))
 	  (when (second pair) (intern (second pair) :keyword)))))
 
-(defmacro define-handler ((uri) (&rest params) &body body)
+(defmacro define-handler ((uri &key (method :get)) (&rest params) &body body)
   (let* ((processed (process-uri uri))
 	 (path-vars (loop for v in processed when (path-var? v) collect (parse-var v))))
+    (assert (member method '(:get :post :put :delete :head))
+	    nil "~s is not one of ~s" method '(:get :post :put :delete :head))
     ;; TODO - check for valid type annotations (try to parse an empty string, and check for a from-string-unknown-type error
     ;; TODO - make the errors report the specific dupes (maybe craft a special error class too).
     (assert (no-dupes? (mapcar #'car path-vars))
@@ -169,7 +89,7 @@
 		       'parameter-type-mismatch
 		       :param-name name :type-a type :type-b tp))))))
       `(insert-handler! 
-	',processed 
+	',(cons method processed)
 	(make-handler 
 	    ,(loop for k being the hash-keys of tbl
 		for v being the hash-values of tbl
@@ -177,34 +97,48 @@
 		collect (list k v))
 	  ,@body)))))
 
-(defun define-error-handler (http-code body)
-  (assert (and (numberp http-code) (>= 599 400 )) nil 
-	  "The http-code must be a number specifying a code 400/500 error")
-  (setf (gethash http-code (error-handlers *handler-table*))
-	body))
+(defun define-error-handler (response-code body &key (content-type "text/plain"))
+  (assert (and (numberp response-code) (or (>= 417 response-code 400) (>= 505 response-code 500))) nil 
+	  "The response-code must be a number specifying a code 400/500 error")
+  (insert-error! 
+   response-code 
+   (make-instance 
+    'response 
+    :response-code response-code 
+    :content-type content-type 
+    :body body)))
 
 ;;;;;;;;;; Serving handlers
+;;;;; General serving utility
 (defun process-params (params)
   (loop for pair in (split-at #\& params)
      collect (let ((split (split-at #\= pair)))
 	       (cons (intern (string-upcase (first split)) :keyword)
 		     (second split)))))
 
+(defun generate-response (method uri param-string headers)
+  (declare (ignore headers))
+  (multiple-value-bind (handler extra-bindings) (find-handler method uri)
+    (if handler
+	(let ((processed (append extra-bindings (process-params param-string))))
+	  (funcall handler (lambda (k) (cdr (assoc k processed)))))
+	(find-error 404))))
+
+;;;;; Server-specific machinery
 (defmethod serve ((server (eql :woo)))
   (woo:run
    (lambda (env)
-     (multiple-value-bind (handler bindings) (find-handler (getf env :path-info))
-       (if handler
-	   (let ((params (append bindings (process-params (getf env :query-string))))
-		 (method (getf env :request-method))
-		 (headers (getf env :headers)))
-	     (format t "~{~s~^  ~}~%" (list handler params method headers))
-	     (list 200 '(:content-type "text/plain")
-		   (list (funcall handler (lambda (k) (cdr (assoc k params)))))))
-	   `(404 (:content-type "text/plain") 
-		 (,(find-error 404))))))))
+     (let ((res (generate-response
+		 (getf env :request-method)
+		 (getf env :path-info)
+		 (getf env :query-string)
+		 (getf env :headers))))
+       (list (response-code res)
+	     (list :content-type (content-type res))
+	     (list (body res)))))))
 
 (with-handler-table (empty)
+  (define-error-handler 404 "Bwowwoddawowow! Nothing fucking here!")
   (define-handler (test) () "Hello world!")
   (define-handler (add) ((a :integer) (b :integer))
     (write-to-string (+ a b)))

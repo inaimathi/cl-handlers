@@ -23,8 +23,15 @@
 - `define-handler` statically checks:
   - That all parameters are annotated
   - That there are no duplicate parameters
-  - That all annotations correspond to valid types.
-- Completely minimal handler table/definition system, but handlers should be able to specify their status codes (this would let you come up with more elaborate errors in some cases, but would still keep the safety net of a plain string handler)
+  - That the specified method is valid
+  - That all annotations correspond to valid types (TODO)
+- Completely minimal error-handler table/definition system, but handlers should be able to specify their status codes (this would let you come up with more elaborate errors in some cases, but would still keep the safety net of a plain string handler)
+- Method specializers are consed onto the path when we do a `trie-lookup`
+
+### Notes FOR THE FUTURE
+- If it turns out that we want handlers that accept requests of any method, the easiest way to implement them seems to be
+	1. Conditionally consing the method onto the URL in `define-handler`
+	2. As part of `find-handler`, search for the naked path first then with the consed method.
 
 ## Usage
 You can run the test-suite from a Lisp REPL with

@@ -14,16 +14,16 @@
     (+ foo bar baz))
   (LAMBDA ($param-table)
     (LET ((FOO (STRING-> :INTEGER (FUNCALL $param-table :FOO)))
-          (BAR (STRING-> :INTEGER (FUNCALL $param-table :BAR)))
-          (BAZ (STRING-> :INTEGER (FUNCALL $param-table :BAZ))))
-      (+ FOO BAR BAZ)))
+	  (BAR (STRING-> :INTEGER (FUNCALL $param-table :BAR)))
+	  (BAZ (STRING-> :INTEGER (FUNCALL $param-table :BAZ))))
+      (MAKE-INSTANCE 'CL-HANDLERS::RESPONSE :BODY (PROGN (+ FOO BAR BAZ)))))
   "Make-handler expands as expected")
 
  (is-expand
   (cl-handlers::make-handler () "This is a Test")
   (LAMBDA ($param-table)
     (DECLARE (IGNORE $param-table))
-    "This is a Test")
+    (MAKE-INSTANCE 'CL-HANDLERS::RESPONSE :BODY (PROGN "This is a Test")))
   "make-handler expands to a let-less body that ignores its table argument when given no parameters")
 
  (is-expand

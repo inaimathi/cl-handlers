@@ -1,7 +1,7 @@
 (in-package :cl-handlers-test)
 
-(defun found-fn? (route)
-  (functionp (cl-handlers::find-handler route)))
+(defun found-fn? (route &key (method :get))
+  (functionp (cl-handlers::find-handler method route)))
 
 (prove:suite
  (ok
