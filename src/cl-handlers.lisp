@@ -32,13 +32,14 @@
 ;;;;;;;;;; Making a handler
 (defmacro make-handler ((&rest params) &body body)
   (with-gensyms (param-table)
-    `(lambda (,param-table)
-       ,@(if params
-             `((let ,(loop for (name type) in params
-                        collect `(,name (string-> ,type (funcall ,param-table ,(intern (symbol-name name) :keyword)))))
-                 (make-instance 'response :body (progn ,@body))))
-             `((declare (ignore ,param-table))
-               (make-instance 'response :body (progn ,@body)))))))
+    (let ((inner `(make-instance 'response :body (progn ,@body))))
+      `(lambda (,param-table)
+	 ,@(if params
+	       `((let ,(loop for (name type) in params
+			  collect `(,name (string-> ,type (funcall ,param-table ,(intern (symbol-name name) :keyword)))))
+		   ,inner))
+	       `((declare (ignore ,param-table))
+		 ,inner))))))
 
 ;;;;;;;;;; Handler definition
 (defclass response ()
@@ -121,7 +122,10 @@
   (multiple-value-bind (handler extra-bindings) (find-handler method uri)
     (if handler
 	(let ((processed (append extra-bindings (process-params param-string))))
-	  (funcall handler (lambda (k) (cdr (assoc k processed)))))
+	  (handler-case
+	      (funcall handler (lambda (k) (cdr (assoc k processed))))
+	    (from-string-error () (find-error 400))
+	    (error () (find-error 500))))
 	(find-error 404))))
 
 ;;;;; Server-specific machinery
@@ -137,9 +141,9 @@
 	     (list :content-type (content-type res))
 	     (list (body res)))))))
 
-(with-handler-table (empty)
-  (define-error-handler 404 "Bwowwoddawowow! Nothing fucking here!")
-  (define-handler (test) () "Hello world!")
-  (define-handler (add) ((a :integer) (b :integer))
-    (write-to-string (+ a b)))
-  (serve :woo))
+;; (with-handler-table (empty)
+;;   (define-error-handler 404 "Bwowwoddawowow! Nothing fucking here!")
+;;   (define-handler (test) () "Hello world!")
+;;   (define-handler (add) ((a :integer) (b :integer))
+;;     (write-to-string (+ a b)))
+;;   (serve :woo))

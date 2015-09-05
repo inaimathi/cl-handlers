@@ -5,8 +5,6 @@
 **This library is still in development.** Don't use it yet.
 
 ## TODO/Notes
-- Trap from-string errors and report the 400 thing
-- Trap other errors and report the 500 thing
 
 ### Open Questions
 - How do we deal with POST parameters?

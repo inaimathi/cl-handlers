@@ -62,8 +62,15 @@
 (defun make-errors-table ()
   (let ((tbl (make-hash-table)))
     (mapc
-     (lambda (pair) (setf (gethash (first pair) tbl) (second pair)))
-     '((404 "Nope! This page doesn't exist here.")
+     (lambda (pair) 
+       (setf 
+	(gethash (first pair) tbl)
+	(make-instance 
+	 'response :response-code (first pair)
+	 :content-type "text/plain"
+	 :body (second pair))))
+     '((400 "Request error")
+       (404 "Not found")
        (500 "Something went wrong internally. Please make a note of it.")))
     tbl))
 

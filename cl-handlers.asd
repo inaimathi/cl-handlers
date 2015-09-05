@@ -9,7 +9,7 @@
   :depends-on (#:alexandria
 	       #:split-sequence
 	       ;; TMP
-	       ; #:woo ;#:hunchentoot #:wookie
+	       #:woo ;#:hunchentoot #:wookie
 	       )
   :components ((:module
                 src :components
