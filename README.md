@@ -9,17 +9,21 @@
 - In the case of a `POST` request with a form-encoded body, read the body and parse it along with uri parameters
   - Add a `read-body` callback to handler bodies to `POST` requests with other body data formats
 - Add a `headers` function that a user can call to get a specific header inside of a handler context (may need this for some `POST` use-cases that aren't form-encoded, such as file uploads)
-- Start up a session automatically, as in `house`
-- Write server-agnostic `generate-response`. Try to write the server-specific `serve` function for at least `:hunchentoot` and `:house`
 - Write some more tests as you go
+- Think about generalizing errors a bit more. Maybe they should be basically the same as handlers, but stored elsewhere
+  - Specific use case: I'd like a 400 error that tells the API caller what they fucked up and how. That can't happen with static responses, as nice as that is perf-wise
 
 ### Open Questions
-- How do we deal with POST parameters?
-  - Deal with URL-encoded parameters in a standardized way.
-  - Give users hooks to deal with the rest (a callback to read the body from stream)
-- How do we deal with session? Same as in `house`?
-- Do we expose `header` properties to handlers? If so, how?
-- How do we organize this project so that it doesn't depend on every server it supports?
+- How do we handle session?
+  - Should be optional. As in, optionally turn it off to save the cycles needed to generate a session key.
+- Is it possible to automate handler testing based on the type annotations?
+  - My gut says "yes". We'd need `arbitrary :: symbol -> a` that took a type annotation and returned a random value of that type. Testing a handler would then mean
+    1. Generating a list of arbitrary parameters according to its specification
+	2. Serializing the values from step 1 to strings
+	3. Calling the handler function with the result from step 2
+	4. Recording the result, and reporting on non-`200` responses (or, possibly non-error responses depending on the input)
+	5. Optionally, generate the query appropriate HTTP request and send it up using `drakma` or something (record results of this the same way)
+  - Put some serious thought into this
 
 ### Decisions
 - Variable param syntax is `-foo=bar`. The type is optional if you intend to declare it in an arg-style annotation
@@ -32,6 +36,7 @@
   - That all annotations correspond to valid types (TODO)
 - Completely minimal error-handler table/definition system, but handlers should be able to specify their status codes (this would let you come up with more elaborate errors in some cases, but would still keep the safety net of a plain string handler)
 - Method specializers are consed onto the path when we do a `trie-lookup`, and insertion from `define-handler`.
+- Turns out [`:clack`](http://quickdocs.org/clack/) is already cross-platform in pretty much the way this is trying to be, so I'll target that instead of rolling my own. Keep an eye on it; if `fukamachi` stops maintining it, might need to actually target individual servers.
 
 ### Notes FOR THE FUTURE
 - If it turns out that we want handlers that accept requests of any method, the easiest way to implement them seems to be

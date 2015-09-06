@@ -8,9 +8,7 @@
   :serial t
   :depends-on (#:alexandria
 	       #:split-sequence
-	       ;; TMP
-	       #:woo ;#:hunchentoot #:wookie
-	       )
+	       #:clack)
   :components ((:module
                 src :components
                 ((:file "package")

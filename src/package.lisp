@@ -1,6 +1,6 @@
 ;;;; package.lisp
 (defpackage #:cl-handlers
-  (:use #:cl)
+  (:use #:cl #:clack)
   (:import-from #:alexandria :with-gensyms)
   (:export
    #:from-string #:string-> #:from-string-error #:from-string-unknown-type

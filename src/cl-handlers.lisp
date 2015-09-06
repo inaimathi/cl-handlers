@@ -32,7 +32,7 @@
 ;;;;;;;;;; Making a handler
 (defmacro make-handler ((&rest params) &body body)
   (with-gensyms (param-table)
-    (let ((inner `(make-instance 'response :body (progn ,@body))))
+    (let ((inner ``(200 (:content-type "text/plain") (,(progn ,@body)))))
       `(lambda (,param-table)
 	 ,@(if params
 	       `((let ,(loop for (name type) in params
@@ -42,12 +42,6 @@
 		 ,inner))))))
 
 ;;;;;;;;;; Handler definition
-(defclass response ()
-  ((response-code :accessor response-code :initform 200 :initarg :response-code)
-   (content-type :accessor content-type :initform "text/plain" :initarg :content-type)
-   (headers :accessor headers :initform nil :initarg :headers)
-   (body :accessor body :initform "" :initarg :body)))
-
 (define-condition untyped-parameter (error)
   ((param-name :initarg :param-name :initform nil :reader param-name))
   (:report (lambda (condition stream)
@@ -101,13 +95,7 @@
 (defun define-error-handler (response-code body &key (content-type "text/plain"))
   (assert (and (numberp response-code) (or (>= 417 response-code 400) (>= 505 response-code 500))) nil 
 	  "The response-code must be a number specifying a code 400/500 error")
-  (insert-error! 
-   response-code 
-   (make-instance 
-    'response 
-    :response-code response-code 
-    :content-type content-type 
-    :body body)))
+  (insert-error! response-code (list response-code (list :content-type content-type) (list body))))
 
 ;;;;;;;;;; Serving handlers
 ;;;;; General serving utility
@@ -117,33 +105,35 @@
 	       (cons (intern (string-upcase (first split)) :keyword)
 		     (second split)))))
 
-(defun generate-response (method uri param-string headers)
-  (declare (ignore headers))
-  (multiple-value-bind (handler extra-bindings) (find-handler method uri)
-    (if handler
-	(let ((processed (append extra-bindings (process-params param-string))))
-	  (handler-case
-	      (funcall handler (lambda (k) (cdr (assoc k processed))))
-	    (from-string-error () (find-error 400))
-	    (error () (find-error 500))))
-	(find-error 404))))
+(defun make-app (&key (handler-table *handler-table*))
+  (lambda (env)
+    ;; (format t "CLACK TEST ~%~s~%~s~%" env (alexandria:hash-table-alist (getf env :headers)))
+    ;; (let ((content-length (getf env :content-length)))
+    ;;   (when (and content-length (> content-length 0))
+    ;; 	(let ((vec (make-array content-length)))
+    ;; 	  (read-sequence vec (getf env :raw-body))
+    ;; 	  (format t "BODY: ~s~%" vec))))
+    (format t "~s~%" (error-handlers handler-table))
+    (let ((method (getf env :request-method))
+	  (uri (getf env :path-info))
+	  (param-string (getf env :query-string))
+	  ;; (headers (getf env :headers))
+	  )
+      (multiple-value-bind (handler extra-bindings) (find-handler method uri :handler-table handler-table)
+	(if handler
+	    (let ((processed (append extra-bindings (process-params param-string))))
+	      (handler-case
+		  (funcall handler (lambda (k) (cdr (assoc k processed))))
+		(from-string-error () (find-error 400 :handler-table handler-table))
+		(error () (find-error 500 :handler-table handler-table))))
+	    (find-error 404 :handler-table handler-table))))))
 
-;;;;; Server-specific machinery
-(defmethod serve ((server (eql :woo)))
-  (woo:run
-   (lambda (env)
-     (let ((res (generate-response
-		 (getf env :request-method)
-		 (getf env :path-info)
-		 (getf env :query-string)
-		 (getf env :headers))))
-       (list (response-code res)
-	     (list :content-type (content-type res))
-	     (list (body res)))))))
 
-;; (with-handler-table (empty)
-;;   (define-error-handler 404 "Bwowwoddawowow! Nothing fucking here!")
-;;   (define-handler (test) () "Hello world!")
-;;   (define-handler (add) ((a :integer) (b :integer))
-;;     (write-to-string (+ a b)))
-;;   (serve :woo))
+;;;;;;;;;; Testing stuff
+
+(with-handler-table (empty)
+  (define-error-handler 404 "Bwowwoddawowow! Nothing fucking here!")
+  (define-handler (test) () "Hello world!")
+  (define-handler (add) ((a :integer) (b :integer))
+    (write-to-string (+ a b)))
+  (clackup (make-app) :server :hunchentoot :port 5000 :use-thread nil))

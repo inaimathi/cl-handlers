@@ -65,10 +65,7 @@
      (lambda (pair) 
        (setf 
 	(gethash (first pair) tbl)
-	(make-instance 
-	 'response :response-code (first pair)
-	 :content-type "text/plain"
-	 :body (second pair))))
+	`(,(first pair) (:content-type "text/plain") (,(second pair)))))
      '((400 "Request error")
        (404 "Not found")
        (500 "Something went wrong internally. Please make a note of it.")))
@@ -81,20 +78,20 @@
 (defun process-uri (uri)
   (split-at #\/ (symbol-name uri)))
 
-(defun insert-handler! (uri handler-fn)
-  (trie-insert! uri handler-fn (handlers *handler-table*))
-  *handler-table*)
+(defun insert-handler! (uri handler-fn &key (handler-table *handler-table*))
+  (trie-insert! uri handler-fn (handlers handler-table))
+  handler-table)
 
-(defun find-handler (method uri-string)
+(defun find-handler (method uri-string &key (handler-table *handler-table*))
   (trie-lookup
    (cons method (split-at #\/ uri-string))
-   (handlers *handler-table*)))
+   (handlers handler-table)))
 
-(defun insert-error! (http-code error)
-  (setf (gethash http-code (error-handlers *handler-table*)) error))
+(defun insert-error! (http-code error &key (handler-table *handler-table*))
+  (setf (gethash http-code (error-handlers handler-table)) error))
 
-(defun find-error (http-code)
-  (gethash http-code (error-handlers *handler-table*)))
+(defun find-error (http-code &key (handler-table *handler-table*))
+  (gethash http-code (error-handlers handler-table)))
 
 (defmacro with-handler-table (tbl &body body)
   `(let ((*handler-table* ,tbl))
