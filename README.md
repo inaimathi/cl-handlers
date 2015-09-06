@@ -6,6 +6,13 @@
 
 ## TODO/Notes
 
+- In the case of a `POST` request with a form-encoded body, read the body and parse it along with uri parameters
+  - Add a `read-body` callback to handler bodies to `POST` requests with other body data formats
+- Add a `headers` function that a user can call to get a specific header inside of a handler context (may need this for some `POST` use-cases that aren't form-encoded, such as file uploads)
+- Start up a session automatically, as in `house`
+- Write server-agnostic `generate-response`. Try to write the server-specific `serve` function for at least `:hunchentoot` and `:house`
+- Write some more tests as you go
+
 ### Open Questions
 - How do we deal with POST parameters?
   - Deal with URL-encoded parameters in a standardized way.
