@@ -105,25 +105,38 @@
 	       (cons (intern (string-upcase (first split)) :keyword)
 		     (second split)))))
 
+(defun handle-body (method content-type content-length stream)
+  (if (and (eq method :post) content-length (> content-length 0))
+      (flet ((read! ()
+	       (let ((seq (make-string content-length)))
+		 (read-sequence seq stream)
+		 seq)))
+	(if (string= content-type "application/x-www-form-urlencoded")
+	    (values 
+	     (process-params (read!))
+	     (constantly ""))
+	    (values nil #'read!)))
+      (values nil (constantly ""))))
+
 (defun make-app (&key (handler-table *handler-table*))
   (lambda (env)
-    ;; (format t "CLACK TEST ~%~s~%~s~%" env (alexandria:hash-table-alist (getf env :headers)))
-    ;; (let ((content-length (getf env :content-length)))
-    ;;   (when (and content-length (> content-length 0))
-    ;; 	(let ((vec (make-array content-length)))
-    ;; 	  (read-sequence vec (getf env :raw-body))
-    ;; 	  (format t "BODY: ~s~%" vec))))
-    (format t "~s~%" (error-handlers handler-table))
     (let ((method (getf env :request-method))
 	  (uri (getf env :path-info))
-	  (param-string (getf env :query-string))
-	  ;; (headers (getf env :headers))
+	  (params (process-params (getf env :query-string)))
+	  ;; (headers (getf env :headers)) TODO - handle that
 	  )
       (multiple-value-bind (handler extra-bindings) (find-handler method uri :handler-table handler-table)
 	(if handler
-	    (let ((processed (append extra-bindings (process-params param-string))))
+	    (multiple-value-bind (post-params body-cb) 
+		(handle-body 
+		 method 
+		 (getf env :content-type)
+		 (getf env :content-length)
+		 (getf env :raw-body))
+	      (declare (ignore body-cb)) ;; TODO - don't ignore that
 	      (handler-case
-		  (funcall handler (lambda (k) (cdr (assoc k processed))))
+		  (let ((processed (append extra-bindings params post-params)))
+		    (funcall handler (lambda (k) (cdr (assoc k processed)))))
 		(from-string-error () (find-error 400 :handler-table handler-table))
 		(error () (find-error 500 :handler-table handler-table))))
 	    (find-error 404 :handler-table handler-table))))))
@@ -134,5 +147,7 @@
 ;;   (define-error-handler 404 "Bwowwoddawowow! Nothing fucking here!")
 ;;   (define-handler (test) () "Hello world!")
 ;;   (define-handler (add) ((a :integer) (b :integer))
+;;     (write-to-string (+ a b)))
+;;   (define-handler (add :method :post) ((a :integer) (b :integer))
 ;;     (write-to-string (+ a b)))
 ;;   (clackup (make-app) :server :hunchentoot :port 5000 :use-thread nil))
