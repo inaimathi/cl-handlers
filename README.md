@@ -24,7 +24,7 @@
   - That the specified method is valid
   - That all annotations correspond to valid types (TODO)
 - Completely minimal error-handler table/definition system, but handlers should be able to specify their status codes (this would let you come up with more elaborate errors in some cases, but would still keep the safety net of a plain string handler)
-- Method specializers are consed onto the path when we do a `trie-lookup`
+- Method specializers are consed onto the path when we do a `trie-lookup`, and insertion from `define-handler`.
 
 ### Notes FOR THE FUTURE
 - If it turns out that we want handlers that accept requests of any method, the easiest way to implement them seems to be
@@ -39,7 +39,7 @@ You can run the test-suite from a Lisp REPL with
 
 This project does nothing else until I write at least one server adapter.
 
-The first one will probably be for [`fukamachi/woo`](), but don't hold me to that.
+The first one will probably be for [`fukamachi/woo`](https://github.com/fukamachi/woo), but don't hold me to that.
 
 ## Export Notes
 
