@@ -125,6 +125,7 @@
 	  (params (process-params (getf env :query-string)))
 	  ;; (headers (getf env :headers)) TODO - handle that
 	  )
+
       (multiple-value-bind (handler extra-bindings) (find-handler method uri :handler-table handler-table)
 	(if handler
 	    (multiple-value-bind (post-params body-cb) 
@@ -150,4 +151,6 @@
 ;;     (write-to-string (+ a b)))
 ;;   (define-handler (add :method :post) ((a :integer) (b :integer))
 ;;     (write-to-string (+ a b)))
-;;   (clackup (make-app) :server :hunchentoot :port 5000 :use-thread nil))
+;;   ;; (woo:run (make-app) :port 5000 :worker-num 5)
+;;   ;; (clack:clackup (make-app) :server :hunchentoot :port 5000 :use-thread nil)
+;;   )
