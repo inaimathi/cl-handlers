@@ -130,10 +130,9 @@
 
 
 ;;;;;;;;;; Testing stuff
-
-(with-handler-table (empty)
-  (define-error-handler 404 "Bwowwoddawowow! Nothing fucking here!")
-  (define-handler (test) () "Hello world!")
-  (define-handler (add) ((a :integer) (b :integer))
-    (write-to-string (+ a b)))
-  (clackup (make-app) :server :hunchentoot :port 5000 :use-thread nil))
+;; (with-handler-table (empty)
+;;   (define-error-handler 404 "Bwowwoddawowow! Nothing fucking here!")
+;;   (define-handler (test) () "Hello world!")
+;;   (define-handler (add) ((a :integer) (b :integer))
+;;     (write-to-string (+ a b)))
+;;   (clackup (make-app) :server :hunchentoot :port 5000 :use-thread nil))
