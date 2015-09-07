@@ -31,15 +31,16 @@
 
 ;;;;;;;;;; Making a handler
 (defmacro make-handler ((&rest params) &body body)
-  (with-gensyms (param-table)
+  (with-gensyms (param-table body-cb)
     (let ((inner ``(200 (:content-type "text/plain") (,(progn ,@body)))))
-      `(lambda (,param-table)
-	 ,@(if params
-	       `((let ,(loop for (name type) in params
-			  collect `(,name (string-> ,type (funcall ,param-table ,(intern (symbol-name name) :keyword)))))
-		   ,inner))
-	       `((declare (ignore ,param-table))
-		 ,inner))))))
+      `(lambda (,param-table ,body-cb)
+	 (flet ((read-body! () (funcall ,body-cb)))
+	   ,@(if params
+		 `((let ,(loop for (name type) in params
+			    collect `(,name (string-> ,type (funcall ,param-table ,(intern (symbol-name name) :keyword)))))
+		     ,inner))
+		 `((declare (ignore ,param-table))
+		   ,inner)))))))
 
 ;;;;;;;;;; Handler definition
 (define-condition untyped-parameter (error)
@@ -134,10 +135,9 @@
 		 (getf env :content-type)
 		 (getf env :content-length)
 		 (getf env :raw-body))
-	      (declare (ignore body-cb)) ;; TODO - don't ignore that
 	      (handler-case
 		  (let ((processed (append extra-bindings params post-params)))
-		    (funcall handler (lambda (k) (cdr (assoc k processed)))))
+		    (funcall handler (lambda (k) (cdr (assoc k processed))) body-cb))
 		(from-string-error () (find-error 400 :handler-table handler-table))
 		(error () (find-error 500 :handler-table handler-table))))
 	    (find-error 404 :handler-table handler-table))))))
