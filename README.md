@@ -5,16 +5,104 @@
 **This library is still in development.** Don't use it yet.
 
 ## Usage
+
+### Test Suite
 You can run the test-suite from a Lisp REPL with
 
     (ql:quickload (list :cl-handlers :cl-handlers-test))
 	(prove:run :cl-handlers-test)
 
-This project does nothing else until I write at least one server adapter.
+### Handler Definition
 
-The first one will probably be for [`fukamachi/woo`](https://github.com/fukamachi/woo), but don't hold me to that.
+#### Basics
 
-## Export Notes
+In order to define handlers, use `define-handler`
+
+    (define-handler (hello) ((message :string))
+	  (format nil "You sent: ~s" message))
+
+The name of the handler becomes its URI, and it accepts parameters according to the arglist. The above handler will listen for `GET` requests coming at the route `/hello`. It will expect the parameter `message`. So something like `/hello?message=foo` will result in a `200` response with the content `You sent: "foo"`.
+
+#### Other Methods
+
+You can use other methods by specifying them in the `define-handler` form.
+
+    (define-handler (hello :method :post) ((message :string))
+	  (format nil "You sent: ~s" message))
+
+Will do the same as the original form, except it will only accept `POST` requests.
+
+#### Different types
+
+The built-in types are `:string`, `:integer` and `:keyword`. These automatically parse appropriate parameters for you.
+
+    (define-handler (add) ((a :integer) (b :integer))
+	  (write-to-string (+ a b)))
+
+creates an addition handler. If a request comes in with parameters `a` and `b` that are parseable to integer (eg: `/add?a=12&b=10`), the return value will be the string of the sum of `a` and `b` (eg: `"22"`). If either parameter is not parseable as an integer (eg2: `/add?a=foo&b=5`), a `400` response is returned instead.
+
+#### Path Variables
+
+These parameters can be destructured from the path, rather than as get params.
+
+    (define-handler (add/-a/-b) ((a :integer) (b :integer))
+	  (write-to-string (+ a b)))
+
+with this approach, the incoming request can look like `/add/12/10`. You can also inline the type annotations if you like.
+
+    (define-handler (add/-a=integer/-b=integer) ()
+	  (write-to-string (+ a b)))
+
+### Running a Server
+
+Once you've defined some handlers, the function `make-app` will return a function suitable for running them as a web application.
+
+```
+CL-HANDLERS> (define-handler (test) () "Hello world!")
+#<HANDLER-TABLE {1002E084D3}>
+CL-HANDLERS> (define-handler (add) ((a :integer) (b :integer))
+    (write-to-string (+ a b)))
+#<HANDLER-TABLE {1002E084D3}>
+CL-HANDLERS> (define-handler (add :method :post) ((a :integer) (b :integer))
+    (write-to-string (+ a b)))
+#<HANDLER-TABLE {1002E084D3}>
+CL-HANDLERS> (define-handler (add/-a=integer/-b=integer) ()
+    (write-to-string (+ a b)))
+#<HANDLER-TABLE {1002E084D3}>
+CL-HANDLERS> (make-app)
+#<CLOSURE (LAMBDA (ENV) :IN MAKE-APP) {100B67D79B}>
+CL-HANDLERS>
+```
+
+It's a function of one argument, suitable running with [`:clack`](https://github.com/fukamachi/clack).
+
+```
+CL-HANDLERS> (ql:quickload :clack)
+To load "clack":
+  Load 1 ASDF system:
+    clack
+; Loading "clack"
+
+(:CLACK)
+CL-HANDLERS> (clack:clackup (make-app) :server :hunchentoot :port 5000 :use-thread nil)
+```
+
+You can then navigate to each of the specified local handlers. For instance, going to `http://localhost:5000/add/12/13` should display the plain-text response `25`.
+
+The app returned this way is also incidentally runnable with the [`:woo` server](https://github.com/fukamachi/woo).
+
+```
+CL-HANDLERS> (ql:quickload :woo)
+To load "woo":
+  Load 1 ASDF system:
+    woo
+; Loading "woo"
+
+(:WOO)
+CL-HANDLERS> (woo:run (make-app) :port 5000)
+```
+
+## Exported Symbols
 
 ### Handler-related function
 

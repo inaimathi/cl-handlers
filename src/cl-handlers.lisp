@@ -151,6 +151,8 @@
 ;;     (write-to-string (+ a b)))
 ;;   (define-handler (add :method :post) ((a :integer) (b :integer))
 ;;     (write-to-string (+ a b)))
+;;   (define-handler (add/-a=integer/-b=integer) ()
+;;     (write-to-string (+ a b)))
 ;;   ;; (woo:run (make-app) :port 5000 :worker-num 5)
 ;;   ;; (clack:clackup (make-app) :server :hunchentoot :port 5000 :use-thread nil)
 ;;   )
