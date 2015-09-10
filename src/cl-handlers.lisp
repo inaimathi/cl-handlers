@@ -30,17 +30,30 @@
     (error () (error (make-instance 'from-string-error :thing thing :expected-type expected-type)))))
 
 ;;;;;;;;;; Making a handler
+;; TODO - we can optimize a lot of the internals here based on what body actually ends up being
+;;        eg. don't bother declaring intermediate vars and setters if they're not used.
 (defmacro make-handler ((&rest params) &body body)
-  (with-gensyms (param-table body-cb)
-    (let ((inner ``(200 (:content-type "text/plain") (,(progn ,@body)))))
-      `(lambda (,param-table ,body-cb)
-	 (flet ((read-body! () (funcall ,body-cb)))
+  (with-gensyms (param-table body-cb res-code res-headers)
+    `(lambda (,param-table ,body-cb)
+       (let ((,res-code 200)
+	     (,res-headers nil))
+	 (flet ((read-body! () (funcall ,body-cb))
+		(set-response-code! (code)
+		  ;; TODO - validate somehow
+		  (setf ,res-code code)
+		  nil)
+		(set-response-header! (name value)
+		  ;; TODO -validate somehow
+		  (setf (getf ,res-headers name) value)
+		  nil)
+		(request-header (name)
+		  nil))
 	   ,@(if params
 		 `((let ,(loop for (name type) in params
 			    collect `(,name (string-> ,type (funcall ,param-table ,(intern (symbol-name name) :keyword)))))
-		     ,inner))
+		     (list ,res-code (list :content-type "text/plain") (list (progn ,@body)))))
 		 `((declare (ignore ,param-table))
-		   ,inner)))))))
+		   (list ,res-code (list :content-type "text/plain") (list (progn ,@body))))))))))
 
 ;;;;;;;;;; Handler definition
 (define-condition untyped-parameter (error)
@@ -124,9 +137,8 @@
     (let ((method (getf env :request-method))
 	  (uri (getf env :path-info))
 	  (params (process-params (getf env :query-string)))
-	  ;; (headers (getf env :headers)) TODO - handle that
-	  )
-
+	  (headers (getf env :headers))) ;; TODO - handle that
+      (format t "REQ HED: ~s~%" (alexandria:hash-table-alist headers))
       (multiple-value-bind (handler extra-bindings) (find-handler method uri :handler-table handler-table)
 	(if handler
 	    (multiple-value-bind (post-params body-cb) 
