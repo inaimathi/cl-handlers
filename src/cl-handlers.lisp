@@ -32,12 +32,13 @@
 ;;;;;;;;;; Making a handler
 ;; TODO - we can optimize a lot of the internals here based on what body actually ends up being
 ;;        eg. don't bother declaring intermediate vars and setters if they're not used.
-(defmacro make-handler ((&rest params) &body body)
-  (with-gensyms (param-table body-cb res-code res-headers)
-    `(lambda (,param-table ,body-cb)
+(defmacro make-handler ((&key (content-type "text/plain")) (&rest params) &body body)
+  (with-gensyms (param-table body-cb header-cb res-code res-headers)
+    `(lambda (,param-table ,header-cb ,body-cb)
        (let ((,res-code 200)
-	     (,res-headers nil))
-	 (flet ((read-body! () (funcall ,body-cb))
+	     (,res-headers (list :content-type ,content-type)))
+	 (flet ((request-header (name) (funcall ,header-cb name))
+		(read-body! () (funcall ,body-cb))
 		(set-response-code! (code)
 		  ;; TODO - validate somehow
 		  (setf ,res-code code)
@@ -45,15 +46,13 @@
 		(set-response-header! (name value)
 		  ;; TODO -validate somehow
 		  (setf (getf ,res-headers name) value)
-		  nil)
-		(request-header (name)
 		  nil))
 	   ,@(if params
 		 `((let ,(loop for (name type) in params
 			    collect `(,name (string-> ,type (funcall ,param-table ,(intern (symbol-name name) :keyword)))))
-		     (list ,res-code (list :content-type "text/plain") (list (progn ,@body)))))
+		     (list ,res-code ,res-headers (list (progn ,@body)))))
 		 `((declare (ignore ,param-table))
-		   (list ,res-code (list :content-type "text/plain") (list (progn ,@body))))))))))
+		   (list ,res-code ,res-headers (list (progn ,@body))))))))))
 
 ;;;;;;;;;; Handler definition
 (define-condition untyped-parameter (error)
@@ -77,7 +76,7 @@
     (list (intern (car pair))
 	  (when (second pair) (intern (second pair) :keyword)))))
 
-(defmacro define-handler ((uri &key (method :get)) (&rest params) &body body)
+(defmacro define-handler ((uri &key (method :get) (content-type "text/plain")) (&rest params) &body body)
   (let* ((processed (process-uri uri))
 	 (path-vars (loop for v in processed when (path-var? v) collect (parse-var v))))
     (assert (member method '(:get :post :put :delete :head))
@@ -99,7 +98,8 @@
 		       :param-name name :type-a type :type-b tp))))))
       `(insert-handler! 
 	',(cons method processed)
-	(make-handler 
+	(make-handler
+	    (:content-type ,content-type)
 	    ,(loop for k being the hash-keys of tbl
 		for v being the hash-values of tbl
 		when (null v) do (error (make-instance 'untyped-parameter :param-name k))
@@ -137,8 +137,7 @@
     (let ((method (getf env :request-method))
 	  (uri (getf env :path-info))
 	  (params (process-params (getf env :query-string)))
-	  (headers (getf env :headers))) ;; TODO - handle that
-      (format t "REQ HED: ~s~%" (alexandria:hash-table-alist headers))
+	  (headers (getf env :headers)))
       (multiple-value-bind (handler extra-bindings) (find-handler method uri :handler-table handler-table)
 	(if handler
 	    (multiple-value-bind (post-params body-cb) 
@@ -149,7 +148,11 @@
 		 (getf env :raw-body))
 	      (handler-case
 		  (let ((processed (append extra-bindings params post-params)))
-		    (funcall handler (lambda (k) (cdr (assoc k processed))) body-cb))
+		    (funcall
+		     handler
+		     (lambda (k) (cdr (assoc k processed)))
+		     (lambda (k) (gethash (string-downcase (symbol-name k)) headers))
+		     body-cb))
 		(from-string-error () (find-error 400 :handler-table handler-table))
 		(error () (find-error 500 :handler-table handler-table))))
 	    (find-error 404 :handler-table handler-table))))))
