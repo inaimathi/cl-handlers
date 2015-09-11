@@ -150,10 +150,8 @@ The error type thrown for undefined types. Don't extend this; it'll cause odd be
 
 ## TODO/Notes
 
-- Add a `headers` function that a user can call to get a specific header inside of a handler context (may need this for some `POST` use-cases that aren't form-encoded, such as file uploads)
+- Fuckton of warnings to deal with after latest round of changes to `make-handler`
 - Write some more tests as you go
-- Think about generalizing errors a bit more. Maybe they should be basically the same as handlers, but stored elsewhere
-  - Specific use case: I'd like a 400 error that tells the API caller what they fucked up and how. That can't happen with static responses, as nice as that is perf-wise
 
 ### Open Questions
 - How do we handle session?
@@ -176,11 +174,13 @@ The error type thrown for undefined types. Don't extend this; it'll cause odd be
   - That there are no duplicate parameters
   - That the specified method is valid
   - That all annotations correspond to valid types (TODO)
-- Completely minimal error-handler table/definition system, but handlers should be able to specify their status codes (this would let you come up with more elaborate errors in some cases, but would still keep the safety net of a plain string handler)
+- Completely minimal error-handler table/definition system, but handlers can specify their status codes. This way, we have a guaranteed-working error system underneath a potentially highly custom and flexible set of error pages.
 - Method specializers are consed onto the path when we do a `trie-lookup`, and insertion from `define-handler`.
 - Turns out [`:clack`](http://quickdocs.org/clack/) is already cross-platform in pretty much the way this is trying to be, so I'll target that instead of rolling my own. Keep an eye on it; if `fukamachi` stops maintining it, might need to actually target individual servers.
+
 
 ### Notes FOR THE FUTURE
 - If it turns out that we want handlers that accept requests of any method, the easiest way to implement them seems to be
 	1. Conditionally consing the method onto the URL in `define-handler`
 	2. As part of `find-handler`, search for the naked path first then with the consed method.
+- We're doing a lot of work in `make-handler` that might never get used. We could analyze `body` and try to eliminate unnecessary intermediate functions and values, inlining where we can.
