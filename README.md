@@ -2,8 +2,6 @@
 
 *A cross-browser DSL for defining HTTP handlers*
 
-**This library is still in development.** Don't use it yet.
-
 ## Usage
 
 ### Test Suite
@@ -43,7 +41,7 @@ creates an addition handler. If a request comes in with parameters `a` and `b` t
 
 #### Path Variables
 
-These parameters can be destructured from the path, rather than as get params.
+These parameters can be destructured from the path, rather than taken from GET/POST params.
 
     (define-handler (add/-a/-b) ((a :integer) (b :integer))
 	  (write-to-string (+ a b)))
