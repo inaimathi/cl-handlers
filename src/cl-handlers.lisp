@@ -32,27 +32,41 @@
 ;;;;;;;;;; Making a handler
 ;; TODO - we can optimize a lot of the internals here based on what body actually ends up being
 ;;        eg. don't bother declaring intermediate vars and setters if they're not used.
+
+(defun local-symbol (sym)
+  (intern (symbol-name sym)))
+
+(defmacro with-local-ignorables ((&rest functions) &body body)
+  `(flet ,(loop for (name args body) in functions
+	     collect `(,(local-symbol name) ,args ,body))
+     (declare (ignorable
+	       ,@(loop for (name args body) in functions
+		    append `(#',(local-symbol name)))))
+     ,@body))
+
 (defmacro make-handler ((&key (content-type "text/plain")) (&rest params) &body body)
   (with-gensyms (param-table body-cb header-cb res-code res-headers)
     `(lambda (,param-table ,header-cb ,body-cb)
        (let ((,res-code 200)
 	     (,res-headers (list :content-type ,content-type)))
-	 (flet ((request-header (name) (funcall ,header-cb name))
-		(read-body! () (funcall ,body-cb))
-		(set-response-code! (code)
-		  ;; TODO - validate somehow
-		  (setf ,res-code code)
-		  nil)
-		(set-response-header! (name value)
-		  ;; TODO -validate somehow
-		  (setf (getf ,res-headers name) value)
-		  nil))
-	   ,@(if params
-		 `((let ,(loop for (name type) in params
-			    collect `(,name (string-> ,type (funcall ,param-table ,(intern (symbol-name name) :keyword)))))
-		     (list ,res-code ,res-headers (list (progn ,@body)))))
-		 `((declare (ignore ,param-table))
-		   (list ,res-code ,res-headers (list (progn ,@body))))))))))
+	 (with-local-ignorables
+	     ((request-header (name) (funcall ,header-cb name))
+	      (read-body! () (funcall ,body-cb))
+	      (set-response-code! (code)
+		;; TODO - validate somehow
+		(setf ,res-code code)
+		nil)
+	      (set-response-header! (name value)
+		;; TODO -validate somehow
+		(setf (getf ,res-headers name) value)
+		nil))
+	   ,(if params
+		`(let ,(loop for (name type) in params
+			  collect `(,name (string-> ,type (funcall ,param-table ,(intern (symbol-name name) :keyword)))))
+		   (let ((res (progn ,@body)))
+		     (list ,res-code ,res-headers (list res))))
+		`(let ((res (progn ,@body)))
+		     (list ,res-code ,res-headers (list res)))))))))
 
 ;;;;;;;;;; Handler definition
 (define-condition untyped-parameter (error)
