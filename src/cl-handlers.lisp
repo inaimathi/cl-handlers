@@ -53,20 +53,20 @@
 	     ((request-header (name) (funcall ,header-cb name))
 	      (read-body! () (funcall ,body-cb))
 	      (set-response-code! (code)
-		;; TODO - validate somehow
-		(setf ,res-code code)
-		nil)
+				  ;; TODO - validate somehow
+				  (setf ,res-code code)
+				  nil)
 	      (set-response-header! (name value)
-		;; TODO -validate somehow
-		(setf (getf ,res-headers name) value)
-		nil))
+				    ;; TODO -validate somehow
+				    (setf (getf ,res-headers name) value)
+				    nil))
 	   ,(if params
 		`(let ,(loop for (name type) in params
 			  collect `(,name (string-> ,type (funcall ,param-table ,(intern (symbol-name name) :keyword)))))
 		   (let ((res (progn ,@body)))
 		     (list ,res-code ,res-headers (list res))))
 		`(let ((res (progn ,@body)))
-		     (list ,res-code ,res-headers (list res)))))))))
+		   (list ,res-code ,res-headers (list res)))))))))
 
 ;;;;;;;;;; Handler definition
 (define-condition untyped-parameter (error)
@@ -82,7 +82,7 @@
 	     (format stream "Declaring ~s to be of type ~a, but already declared to be of type ~a"
 		     (param-name condition) (type-a condition) (type-b condition)))))
 
-(defun no-dupes? (lst) 
+(defun no-dupes? (lst)
   (equal lst (remove-duplicates lst)))
 
 (defun parse-var (str)
@@ -106,11 +106,11 @@
 	 do (let ((tp (gethash name tbl)))
 	      (cond ((null tp) (setf (gethash name tbl) type))
 		    ((not (eq type tp))
-		     (error 
-		      (make-instance 
+		     (error
+		      (make-instance
 		       'parameter-type-mismatch
 		       :param-name name :type-a type :type-b tp))))))
-      `(insert-handler! 
+      `(insert-handler!
 	',(cons method processed)
 	(make-handler
 	    (:content-type ,content-type)
@@ -121,7 +121,7 @@
 	  ,@body)))))
 
 (defun define-error-handler (response-code body &key (content-type "text/plain"))
-  (assert (and (numberp response-code) (or (>= 417 response-code 400) (>= 505 response-code 500))) nil 
+  (assert (and (numberp response-code) (or (>= 417 response-code 400) (>= 505 response-code 500))) nil
 	  "The response-code must be a number specifying a code 400/500 error")
   (insert-error! response-code (list response-code (list :content-type content-type) (list body))))
 
@@ -140,7 +140,7 @@
 		 (read-sequence seq stream)
 		 seq)))
 	(if (string= content-type "application/x-www-form-urlencoded")
-	    (values 
+	    (values
 	     (process-params (read!))
 	     (constantly ""))
 	    (values nil #'read!)))
@@ -154,9 +154,9 @@
 	  (headers (getf env :headers)))
       (multiple-value-bind (handler extra-bindings) (find-handler method uri :handler-table handler-table)
 	(if handler
-	    (multiple-value-bind (post-params body-cb) 
-		(handle-body 
-		 method 
+	    (multiple-value-bind (post-params body-cb)
+		(handle-body
+		 method
 		 (getf env :content-type)
 		 (getf env :content-length)
 		 (getf env :raw-body))
