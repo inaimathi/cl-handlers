@@ -2,6 +2,8 @@
 
 *A cross-browser DSL for defining HTTP handlers*
 
+[![Build Status](https://travis-ci.org/inaimathi/cl-handlers.svg?branch=master)](https://travis-ci.org/inaimathi/cl-handlers)
+
 ## Usage
 
 ### Test Suite
