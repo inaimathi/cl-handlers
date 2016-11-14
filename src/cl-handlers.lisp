@@ -45,7 +45,7 @@
      ,@body))
 
 (defmacro make-handler ((&key (content-type "text/plain")) (&rest params) &body body)
-  (with-gensyms (param-table body-cb header-cb res-code res-headers)
+  (with-gensyms (param-table body-cb header-cb res-code res-headers res-body)
     `(lambda (,param-table ,header-cb ,body-cb)
        (let ((,res-code 200)
 	     (,res-headers (list :content-type ,content-type)))
@@ -63,10 +63,10 @@
 	   ,(if params
 		`(let ,(loop for (name type) in params
 			  collect `(,name (string-> ,type (funcall ,param-table ,(intern (symbol-name name) :keyword)))))
-		   (let ((res (progn ,@body)))
-		     (list ,res-code ,res-headers (list res))))
-		`(let ((res (progn ,@body)))
-		   (list ,res-code ,res-headers (list res)))))))))
+		   (let ((,res-body (progn ,@body)))
+		     (list ,res-code ,res-headers (list ,res-body))))
+		`(let ((,res-body (progn ,@body)))
+		   (list ,res-code ,res-headers (list ,res-body)))))))))
 
 ;;;;;;;;;; Handler definition
 (define-condition untyped-parameter (error)
