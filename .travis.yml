@@ -5,4 +5,4 @@ install:
   - curl -L https://raw.githubusercontent.com/snmsts/roswell/release/scripts/install-for-ci.sh | sh
 
 script:
-  - ros -s prove -e '(ql:quickload :cl-handlers-test)' -e '(or (prove:run :cl-handlers-test) (uiop:quit -1))'
+  - ros -s prove -e '(progn (ql:quickload :cl-handlers-test) (or (prove:run :cl-handlers-test) (uiop:quit -1)))'
